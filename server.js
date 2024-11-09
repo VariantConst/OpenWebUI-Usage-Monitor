@@ -7,6 +7,9 @@ const { encode, encodeChat } = require("gpt-tokenizer/cjs/model/gpt-3.5-turbo");
 const app = express();
 const port = 2811;
 
+const { encode: encode_cl100k_base } = require("gpt-tokenizer");
+const { encode: encode_o200k_base } = require("gpt-tokenizer/model/gpt-4o"); // 或 o1
+
 app.use(bodyParser.json());
 
 app.post("/post_user_info", async (req, res) => {
@@ -59,20 +62,30 @@ app.post("/post_result", async (req, res) => {
   }
 });
 
-// 修改计算令牌的路由
 app.post("/calculate_tokens", (req, res) => {
   try {
     const { messages, type, model } = req.body;
     let tokenCount;
 
-    if (type === "chat") {
-      // 只计算所有消息的 content
-      const allContent = messages.map((msg) => msg.content).join("");
-      tokenCount = encode(allContent).length;
-    } else {
-      tokenCount = encode(messages).length;
-    }
+    // 简化 tokenizer 选择逻辑
+    let encodeFunc = /o1|4o/.test(model)
+      ? encode_o200k_base
+      : encode_cl100k_base;
 
+    console.log(
+      `model: ${model}, type: ${type}, encodeFunc: ${
+        /o1|4o/.test(model) ? "encode_o200k_base" : "encode_cl100k_base"
+      }`
+    );
+    if (type === "chat") {
+      const allContent = messages.map((msg) => msg.content).join("");
+      tokenCount = encodeFunc(allContent).length;
+    } else {
+      // 处理非字符串类型的 messages
+      const messageString =
+        typeof messages === "string" ? messages : JSON.stringify(messages);
+      tokenCount = encodeFunc(messageString).length;
+    }
     res.json({ tokens: tokenCount });
   } catch (error) {
     console.error("Error calculating tokens:", error);
