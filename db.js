@@ -87,7 +87,6 @@ function getModelPrices(modelName) {
 // 获取或创建用户
 async function getOrCreateUser(userData) {
   return new Promise((resolve, reject) => {
-    console.log("userData", userData);
     if (!userData || !userData.id) {
       console.log("未提供用户数据");
       resolve({ balance: 0 });
@@ -102,7 +101,6 @@ async function getOrCreateUser(userData) {
       }
 
       if (row) {
-        console.log(`找到现有用户: ${userData.id}, 余额: ${row.balance}`);
         resolve(row);
       } else {
         console.log(`创建新用户: ${userData.id}`);

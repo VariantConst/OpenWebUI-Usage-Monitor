@@ -9,11 +9,14 @@ importers:
   .:
     dependencies:
       body-parser:
-        specifier: ^1.20.3
+        specifier: ^1.20.2
         version: 1.20.3
       express:
-        specifier: ^4.21.1
+        specifier: ^4.18.2
         version: 4.21.1
+      gpt-tokenizer:
+        specifier: ^2.1.2
+        version: 2.6.0
       sqlite3:
         specifier: ^5.1.7
         version: 5.1.7
@@ -279,6 +282,9 @@ packages:
 
   gopd@1.0.1:
     resolution: {integrity: sha512-d65bNlIadxvpb/A2abVdlqKqV563juRnZ1Wtk6s1sIR8uNsXR70xqIzVqxVf1eTqDunwT2MkczEeaezCKTZhwA==}
+
+  gpt-tokenizer@2.6.0:
+    resolution: {integrity: sha512-4NzSmroimN+yEg8KFmG+URerBtVHrOIXhcohn5TgmaKWzVOIeZ5AJshQzI3lJybYnLk4HWHWy/deIw+VSfcw2g==}
 
   graceful-fs@4.2.11:
     resolution: {integrity: sha512-RbJ5/jmFcNNCcDV5o9eTnBLJ/HszWV0P73bc+Ff4nS/rJj+YaS6IGyiOL0VoBYX+l1Wrl3k63h/KrH+nhJ0XvQ==}
@@ -1037,6 +1043,8 @@ snapshots:
   gopd@1.0.1:
     dependencies:
       get-intrinsic: 1.2.4
+
+  gpt-tokenizer@2.6.0: {}
 
   graceful-fs@4.2.11:
     optional: true

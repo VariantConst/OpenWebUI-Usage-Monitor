@@ -2,13 +2,11 @@ from typing import Optional
 from pydantic import Field, BaseModel
 import requests
 import json
+import math
 
 
 class Filter:
     class Valves(BaseModel):
-        priority: int = Field(
-            default=0, description="Priority level for the filter operations."
-        )
         API_ENDPOINT: str = Field(
             default="", description="The base URL for the API endpoint."
         )
@@ -20,69 +18,77 @@ class Filter:
             default="/post_result",
             description="Single-level endpoint for posting LLM result.",
         )
-        MODEL_NAME: str = Field(
-            default="default-model",
-            description="The model name used in the OpenWebUI session.",
+        USE_ACCURATE_TOKENIZER: bool = Field(
+            default=False,
+            description="Whether to use accurate tokenizer calculation from backend",
         )
 
     def __init__(self):
         self.type = "filter"
-        self.name = "OpenWebUI Filter"
+        self.name = "OpenWebUI Monitor"
         self.valves = self.Valves()
-        self.session_id = None
+
+    def calculate_tokens(self, messages: list[dict] | str, model: str) -> int:
+        if not self.valves.USE_ACCURATE_TOKENIZER:
+            # 使用原来的估算方法
+            total = 0
+            if isinstance(messages, list):
+                for msg in messages:
+                    total += len(msg["content"]) / 2.718 + 2
+            else:
+                total += len(json.dumps(messages)[1:-1].encode('unicode-escape').decode()) / 2.718 + 2
+            return int(total)
+        else:
+            # 使用后端的精确计算
+            try:
+                post_url = f"{self.valves.API_ENDPOINT}/calculate_tokens"
+                response = requests.post(
+                    post_url,
+                    json={
+                        "messages": messages,
+                        "type": "chat" if isinstance(messages, list) else "text",
+                        "model": model
+                    }
+                )
+                response.raise_for_status()
+                return response.json()["tokens"]
+            except Exception as e:
+                print(f"Error calculating tokens accurately: {e}")
+                # 如果精确计算失败，回退到估算方法
+                return self.calculate_tokens(messages, model)
 
     def inlet(self, body: dict, user: Optional[dict] = None, __user__: dict = {}) -> dict:
         post_url = f"{self.valves.API_ENDPOINT}{self.valves.POST_USER_INFO_PATH}"
-        try:
-            request_data = {"body": body, "user": __user__}
-            response = requests.post(post_url, json=request_data)
-            response.raise_for_status()
-            self.session_id = body.get("metadata", {}).get("chat_id")
-        except requests.RequestException as e:
-            if "messages" in body and body["messages"]:
-                last_msg = body["messages"][-1]
-                if last_msg["role"] == "user":
-                    last_msg["content"] += f"\n\n[Debug: API Error - {str(e)}]"
+        self.input_tokens = self.calculate_tokens(body["messages"], body["model"])
+        response = requests.post(post_url, json={"user": __user__})
+        response.raise_for_status()
         return body
 
     def outlet(
         self, body: dict, user: Optional[dict] = None, __user__: dict = {}
     ) -> dict:
-        if self.session_id:
-            post_url = f"{self.valves.API_ENDPOINT}{self.valves.POST_RESULT_PATH}"
-            try:
-                assistant_message = None
-                if "messages" in body and isinstance(body["messages"], list):
-                    for msg in reversed(body["messages"]):
-                        if msg.get("role") == "assistant":
-                            assistant_message = msg
-                            break
+        post_url = f"{self.valves.API_ENDPOINT}{self.valves.POST_RESULT_PATH}"
+        assistant_message = None
+        if "messages" in body and isinstance(body["messages"], list):
+            for msg in reversed(body["messages"]):
+                if msg.get("role") == "assistant":
+                    assistant_message = msg
+                    break
+            
+        output_tokens = self.calculate_tokens(assistant_message["content"], body["model"])
 
-                request_data = {
-                    "session_id": self.session_id,
-                    "body": body,
-                    "user": __user__,
-                    "llm_response": (
-                        assistant_message["content"] if assistant_message else ""
-                    ),
-                }
-                response = requests.post(post_url, json=request_data)
-                response.raise_for_status()
-                result = response.json()
+        request_data = {
+            "user": __user__,
+            "model": body["model"],
+            "input_tokens": self.input_tokens,
+            "output_tokens": output_tokens,
+        }
+        response = requests.post(post_url, json=request_data)
+        response.raise_for_status()
+        result = response.json()
 
-                # 在消息末尾添加统计信息和用户信息
-                if assistant_message and result.get("llm_response"):
-                    assistant_message["content"] = (
-                        result["llm_response"]
-                        + result.get("stats_text", "")
-                    )
-
-            except requests.RequestException as e:
-                error_message = str(e)
-                print(f"Error posting result to API: {error_message}")
-                if assistant_message:
-                    assistant_message[
-                        "content"
-                    ] += f"\n\n[Debug: API Error - {error_message}]"
+        # 在消息末尾添加统计信息和用户信息
+        if assistant_message and result.get("stats_text"):
+            assistant_message["content"] += result.get("stats_text", "")
 
         return body
