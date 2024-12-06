@@ -138,9 +138,9 @@ class Filter:
             stats_array = []
 
             if self.valves.show_cost:
-                stats_array.append(f"费用: ¥{total_cost:.4f}")
+                stats_array.append(f"费用: ${total_cost:.4f}")
             if self.valves.show_balance:
-                stats_array.append(f"余额: ¥{new_balance:.4f}")
+                stats_array.append(f"余额: ${new_balance:.4f}")
             if self.valves.show_tokens:
                 stats_array.append(f"Token: {input_tokens}+{output_tokens}")
 
