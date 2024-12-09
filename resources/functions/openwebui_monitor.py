@@ -44,6 +44,7 @@ class Filter:
         show_balance: bool = Field(
             default=True, description="Display balance information"
         )
+        show_spend_time: bool = Field(default=True, description="Display spend time")
         show_tokens: bool = Field(default=True, description="Display token usage")
         show_tokens_per_sec: bool = Field(
             default=True, description="Display tokens per second"
@@ -177,7 +178,7 @@ class Filter:
             if self.valves.show_tokens:
                 stats_array.append(self.get_text("tokens", input=input_tokens, output=output_tokens))
 
-            if self.start_time:
+            if self.start_time and self.valves.show_spend_time:
                 elapsed_time = time.time() - self.start_time
                 stats_array.append(self.get_text("time_spent", time=elapsed_time))
                 
